@@ -1,0 +1,141 @@
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(glmnet)
+library(GGally)
+library(ggcorrplot)
+library(MASS)
+library(car)
+library(lubridate)
+library(lmtest)
+library(splines)
+library(esquisse)
+
+```
+
+```{r}
+bike <- read_csv("bike_cleaned.csv")
+```
+
+```{r}
+summary(bike)
+```
+
+```{r}
+bike = bike %>% mutate(dteday = mdy(dteday))
+#Note that mdy is a lubridate package function
+#You can read more about lubridate here: https://lubridate.tidyverse.org/
+```
+
+```{r}
+bike = bike %>% mutate_if(is.character, as_factor)
+bike = bike %>% mutate(hr = as_factor(hr))
+
+```
+
+```{r}
+ggpairs(bike, columns = c("temp","atemp","hum","windspeed","count"))
+```
+
+```{r}
+ggcorr(bike, label = "TRUE") 
+```
+
+
+```{r}
+#esquisser(bike)
+
+
+library(ggplot2)
+
+ggplot(bike) +
+ aes(x = count, y = season) +
+ geom_boxplot(fill = "#112446") +
+ theme_minimal()
+
+```
+
+```{r}
+bike_recipe = recipe(count ~ hr, bike)
+
+lm_model = #give the model type a name 
+  linear_reg() %>% #specify that we are doing linear regression
+  set_engine("lm") #specify the specify type of linear tool we want to use 
+
+lm_wflow = 
+  workflow() %>% 
+  add_model(lm_model) %>% 
+  add_recipe(bike_recipe)
+
+lm_fit = fit(lm_wflow, bike)
+```
+
+```{r}
+summary(lm_fit$fit$fit$fit)
+```
+
+```{r}
+#esquisser(bike)
+
+ggplot(bike) +
+ aes(x = temp, y = count) +
+ geom_point(shape = "circle", size = 1.5, colour = "#112446") +
+ theme_minimal()
+
+```
+
+```{r}
+bike_recipe2 = recipe(count ~ hr + temp, bike)
+
+lm_model = #give the model type a name 
+  linear_reg() %>% #specify that we are doing linear regression
+  set_engine("lm") #specify the specify type of linear tool we want to use 
+
+lm_wflow2 = 
+  workflow() %>% 
+  add_model(lm_model) %>% 
+  add_recipe(bike_recipe2)
+
+lm_fit2 = fit(lm_wflow2, bike)
+```
+
+```{r}
+summary(lm_fit2$fit$fit$fit)
+```
+
+```{r}
+bike_recipe3 = recipe(count ~ atemp + temp, bike)
+
+lm_model = #give the model type a name 
+  linear_reg() %>% #specify that we are doing linear regression
+  set_engine("lm") #specify the specify type of linear tool we want to use 
+
+lm_wflow3 = 
+  workflow() %>% 
+  add_model(lm_model) %>% 
+  add_recipe(bike_recipe3)
+
+lm_fit3 = fit(lm_wflow3, bike)
+```
+
+```{r}
+summary(lm_fit3$fit$fit$fit)
+```
+
+```{r}
+car::vif(lm_fit3$fit$fit$fit) #Using the vif function from the the car package
+```
+
+```{r}
+allmod = lm(count ~ season + mnth + hr + holiday + weekday + workingday + weathersit + temp + atemp + hum + windspeed, bike) #use the ~. to include all predictors rather than typing them all in
+summary(allmod)
+```
+
+
+```{r}
+#backward
+backmod = stepAIC(allmod, direction = "backward", trace = TRUE) #trace = TRUE shows how the model is built (which variables are removed)
+summary(backmod)
+```
+

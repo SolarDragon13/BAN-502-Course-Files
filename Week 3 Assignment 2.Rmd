@@ -1,0 +1,207 @@
+---
+title: "Assignment 2"
+author: "Glenn Barber"
+date: "2023-06-06"
+output: word_document
+---
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(e1071)
+library(ROCR)
+
+```
+
+```{r}
+parole <- read_csv("parole.csv")
+```
+
+```{r}
+parole = parole %>% mutate(male = as_factor(male)) %>% 
+  mutate(male = fct_recode(male, "female" = "0", "male" = "1" )) 
+```
+
+```{r}
+parole = parole %>% mutate(race = as_factor(race)) %>% 
+  mutate(race = fct_recode(race, "otherwise" = "2", "white" = "1" ))
+
+parole = parole %>% mutate(state = as_factor(state)) %>% 
+  mutate(state = fct_recode(state, "Kentucky" = "2", "Louisiana" = "3","Virginia" = "4", "any other state" = "1" ))
+
+parole = parole %>% mutate(crime = as_factor(crime)) %>% 
+  mutate(crime = fct_recode(crime, "larceny" = "2", "drug-related crime" = "3","driving-related crime" = "4", "any other" = "1" ))
+
+parole = parole %>% mutate(multiple.offenses = as_factor(multiple.offenses)) %>% 
+  mutate(multiple.offenses = fct_recode(multiple.offenses, "incarcerated for multiple offenses" = "1", "otherwise" = "0"))
+
+parole = parole %>% mutate(violator = as_factor(violator)) %>% 
+  mutate(violator = fct_recode(violator, "violated the parole" = "1", "completed the parole without violation" = "0"))
+
+```
+
+```{r}
+summary(parole$violator)
+```
+
+```{r}
+set.seed(12345) 
+parole_split = initial_split(parole, prop = 0.70, strata = violator)
+train = training(parole_split)
+test = testing(parole_split)
+
+```
+
+```{r}
+levels(train$violator)
+
+```
+
+```{r}
+train = train %>% mutate(violator = fct_relevel(violator, c("No","Yes")))
+levels(train$violator)
+```
+
+```{r}
+ggplot(train,aes(x=violator, fill = male)) + geom_bar()
+t1 = table(train$violator,train$male)
+prop.table(t1, margin = 2)
+```
+
+```{r}
+t1 = table(train$violator,train$state)
+prop.table(t1, margin = 2)
+```
+
+```{r}
+t1 = table(train$violator,train$max.sentence)
+prop.table(t1, margin = 2)
+```
+
+```{r}
+parole_model = 
+  logistic_reg(mode = "classification") %>% #note the use of logistic_reg and mode = "classification"
+  set_engine("glm") #standard logistic regression engine is glm
+
+parole_recipe = recipe(violator ~ state, train)
+
+logreg_wf = workflow() %>%
+  add_recipe(parole_recipe) %>% 
+  add_model(parole_model)
+
+parole_fit = fit(logreg_wf, train)
+```
+
+```{r}
+summary(parole_fit$fit$fit$fit)
+```
+
+```{r}
+parole_model2 = 
+  logistic_reg(mode = "classification") %>% #note the use of logistic_reg and mode = "classification"
+  set_engine("glm") #standard logistic regression engine is glm
+
+parole_recipe2 = recipe(violator ~ state + multiple.offenses + race, train)
+
+logreg_wf = workflow() %>%
+  add_recipe(parole_recipe2) %>% 
+  add_model(parole_model2)
+
+parole_fit2 = fit(logreg_wf, train)
+```
+
+```{r}
+summary(parole_fit2$fit$fit$fit)
+```
+
+```{r}
+newdata = data.frame(state = "Louisiana", multiple.offenses = "incarcerated for multiple offenses", race = "white")
+predict(parole_fit2, newdata, type="prob")
+```
+
+```{r}
+predictions = predict(parole_fit2, parole, type="prob") [2] #develop predicted probabilities
+head(predictions)
+```
+
+
+```{r}
+#Change this next line to the names of your predictions and the response variable in the training data frame
+ROCRpred = prediction(predictions, parole$violator) 
+
+###You shouldn't need to ever change the next two lines:
+ROCRperf = performance(ROCRpred, "tpr", "fpr")
+plot(ROCRperf, colorize=TRUE, print.cutoffs.at=seq(0,1,by=0.1), text.adj=c(-0.2,1.7))
+```
+```{r}
+as.numeric(performance(ROCRpred, "auc")@y.values)
+```
+
+```{r}
+#Determine threshold to balance sensitivity and specificity
+#DO NOT modify this code
+opt.cut = function(perf, pred){
+    cut.ind = mapply(FUN=function(x, y, p){
+        d = (x - 0)^2 + (y-1)^2
+        ind = which(d == min(d))
+        c(sensitivity = y[[ind]], specificity = 1-x[[ind]], 
+            cutoff = p[[ind]])
+    }, perf@x.values, perf@y.values, pred@cutoffs)
+}
+print(opt.cut(ROCRperf, ROCRpred))
+
+```
+
+```{r}
+#confusion matrix
+#The "No" and "Yes" represent the actual values
+#The "FALSE" and "TRUE" represent our predicted values
+t1 = table(parole$violator,predictions > 0.08627651)
+t1
+```
+
+
+
+```{r}
+(t1[1,1]+t1[2,2])/nrow(parole)
+```
+```{r}
+predictions2 = predict(parole_fit2, train, type="prob") [2] #develop predicted probabilities
+head(predictions2)
+```
+```{r}
+#Change this next line to the names of your predictions and the response variable in the training data frame
+ROCRpred2 = prediction(predictions2, train$violator) 
+
+###You shouldn't need to ever change the next two lines:
+ROCRperf2 = performance(ROCRpred2, "tpr", "fpr")
+plot(ROCRperf2, colorize=TRUE, print.cutoffs.at=seq(0,1,by=0.1), text.adj=c(-0.2,1.7))
+```
+```{r}
+as.numeric(performance(ROCRpred2, "auc")@y.values)
+```
+
+```{r}
+#Determine threshold to balance sensitivity and specificity
+#DO NOT modify this code
+opt.cut = function(perf, pred){
+    cut.ind = mapply(FUN=function(x, y, p){
+        d = (x - 0)^2 + (y-1)^2
+        ind = which(d == min(d))
+        c(sensitivity = y[[ind]], specificity = 1-x[[ind]], 
+            cutoff = p[[ind]])
+    }, perf@x.values, perf@y.values, pred@cutoffs)
+}
+print(opt.cut(ROCRperf2, ROCRpred2))
+```
+
+```{r}
+#confusion matrix
+#The "No" and "Yes" represent the actual values
+#The "FALSE" and "TRUE" represent our predicted values
+t2 = table(train$violator,predictions2 > 0.2015788)
+t2
+```
+```{r}
+(t2[1,1]+t2[2,2])/nrow(train)
+```

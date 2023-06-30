@@ -1,0 +1,88 @@
+# Glenn Barber Assignment 1
+
+```{r} 
+library(tidyverse)
+library(tidymodels)
+library(GGally)
+library(lmtest)
+library(esquisse)
+# Setting up packages that will be needed for this assignment. I added in Esquisse
+```
+
+```{r}
+air <- airquality
+# Pulling in default data that was requested
+```
+
+```{r}
+summary(air)
+# Use this to look for missing data
+```
+
+```{r}
+air2 = air %>% drop_na()
+# Use this to get rid of the missing values that were in the original data frame
+```
+
+```{r}
+ggpairs(air2)
+#Use this to see a breakdown of the data frame
+```
+
+```{r}
+ggcorr(air2, label = TRUE)
+# use this label function to see the values
+```
+
+```{r}
+#esquisser(air2)
+
+ggplot(air2) +
+ aes(x = Temp, y = Ozone) +
+ geom_point(shape = "circle", size = 1.5, colour = "#112446") +
+ theme_minimal()
+
+```
+
+```{r}
+ozone_simple = recipe(Ozone ~ Temp, air2)
+ozone_simple
+```
+```{r}
+lm_model = #give the model type a name 
+  linear_reg() %>% #specify that we are doing linear regression
+  set_engine("lm") #specify the specify type of linear tool we want to use 
+```
+
+```{r}
+lm_wflow = 
+  workflow() %>% 
+  add_model(lm_model) %>% 
+  add_recipe(ozone_simple)
+```
+
+```{r}
+lm_fit = fit(lm_wflow, air2)
+```
+
+```{r}
+summary(lm_fit$fit$fit$fit) #three fits :), the actual fit is embedded deeply in the object
+```
+```{r}
+mod1 = lm(Ozone ~ Temp, air2) #create linear regression model
+summary(mod1) #examine the model
+```
+
+```{r}
+confint(lm_fit$fit$fit$fit)
+```
+
+```{r}
+testdata = data.frame(Temp = c(80))
+predict(lm_fit, new_data = testdata)
+```
+
+```{r}
+dwtest(lm_fit$fit$fit$fit)
+```
+

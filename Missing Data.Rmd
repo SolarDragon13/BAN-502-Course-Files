@@ -1,0 +1,57 @@
+---
+title: "Missing Data assignment"
+author: "Glenn Barber"
+date: "2023-06-11"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(VIM)
+library(mice)
+
+```
+
+```{r}
+class_grades <- read_csv("class-grades.csv")
+```
+
+```{r}
+str(class_grades)
+summary(class_grades)
+skim(class_grades)
+
+```
+
+```{r}
+vim_plot = aggr(class_grades, numbers = TRUE, prop = c(TRUE, FALSE),cex.axis=.7)
+#the cex.axis reduces size of text on x-axis so labels fit better
+```
+
+```{r}
+classgrades_rowdel = class_grades %>% drop_na() 
+#alternatively can specify which variable(s) on which to do the drop_na
+#drop_na(Age)
+skim(classgrades_rowdel)
+```
+
+```{r}
+classgrades_coldel = class_grades %>% select(-Tutorial,-Midterm,-TakeHome,-Final) 
+vim_plot = aggr(classgrades_coldel, numbers = TRUE, prop = c(TRUE, FALSE),cex.axis=.7)
+skim(classgrades_coldel)
+```
+
+```{r}
+set.seed(123) #sets seed for random number generator
+imp_class = mice(class_grades, m=5, method='pmm', printFlag=FALSE)
+#m is the number of imputations, 5 is a reasonable value as a default
+#pmm is "predictive mean matching" = imputation method for numeric data
+#printFlag reduces amount of output
+summary(imp_class)
+```
+
+```{r}
+class_complete = complete(imp_class) 
+summary(class_complete)
+```
+
